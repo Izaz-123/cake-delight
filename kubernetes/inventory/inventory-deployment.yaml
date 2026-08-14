@@ -1,0 +1,202 @@
+# ============================================================
+# inventory-db (MySQL, owned exclusively by inventory-service)
+# ============================================================
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: inventory-db-pvc
+  namespace: cake-delight
+  labels:
+    app: inventory-db
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inventory-db
+  namespace: cake-delight
+  labels:
+    app: inventory-db
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: inventory-db
+  template:
+    metadata:
+      labels:
+        app: inventory-db
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.4
+          ports:
+            - containerPort: 3306
+              name: mysql
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-credentials
+                  key: MYSQL_ROOT_PASSWORD
+            - name: MYSQL_DATABASE
+              value: "cake_inventory"
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+            # Run once by the MySQL image against an empty data directory.
+            - name: init
+              mountPath: /docker-entrypoint-initdb.d
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "mysqladmin ping -h 127.0.0.1 -uroot -p$MYSQL_ROOT_PASSWORD"]
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 12
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "mysqladmin ping -h 127.0.0.1 -uroot -p$MYSQL_ROOT_PASSWORD"]
+            initialDelaySeconds: 120
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: inventory-db-pvc
+        - name: init
+          configMap:
+            name: inventory-db-init
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: inventory-db
+  namespace: cake-delight
+  labels:
+    app: inventory-db
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3306
+      targetPort: 3306
+  selector:
+    app: inventory-db
+---
+# ============================================================
+# inventory-service
+# ============================================================
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: inventory-config
+  namespace: cake-delight
+  labels:
+    app: inventory-service
+data:
+  PORT: "8084"
+  DB_HOST: "inventory-db"
+  DB_USER: "root"
+  DB_NAME: "cake_inventory"
+  DB_PORT: "3306"
+  CATALOG_SERVICE_URL: "http://catalog-service:8081"
+  RABBITMQ_EXCHANGE: "order.events"
+  RABBITMQ_DLX: "order.dlx"
+  RABBITMQ_QUEUE: "inventory.order.completed"
+  RABBITMQ_DLQ: "inventory.order.completed.dlq"
+  RABBITMQ_ROUTING_KEY: "order.completed"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inventory-service
+  namespace: cake-delight
+  labels:
+    app: inventory-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: inventory-service
+  template:
+    metadata:
+      labels:
+        app: inventory-service
+    spec:
+      containers:
+        - name: inventory-service
+          image: cake-inventory-service:latest
+          # Images are built locally; never pull from a registry.
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8084
+              name: http
+          envFrom:
+            - configMapRef:
+                name: inventory-config
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-credentials
+                  key: DB_PASSWORD
+            - name: RABBITMQ_URL
+              valueFrom:
+                secretKeyRef:
+                  name: rabbitmq-credentials
+                  key: RABBITMQ_URL
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8084
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8084
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: inventory-service
+  namespace: cake-delight
+  labels:
+    app: inventory-service
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8084
+      targetPort: 8084
+  selector:
+    app: inventory-service

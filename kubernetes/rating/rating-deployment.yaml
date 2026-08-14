@@ -1,0 +1,192 @@
+# ============================================================
+# rating-db (MySQL, owned exclusively by rating-service)
+# ============================================================
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: rating-db-pvc
+  namespace: cake-delight
+  labels:
+    app: rating-db
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rating-db
+  namespace: cake-delight
+  labels:
+    app: rating-db
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: rating-db
+  template:
+    metadata:
+      labels:
+        app: rating-db
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.4
+          ports:
+            - containerPort: 3306
+              name: mysql
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-credentials
+                  key: MYSQL_ROOT_PASSWORD
+            - name: MYSQL_DATABASE
+              value: "cake_ratings"
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+            # Run once by the MySQL image against an empty data directory.
+            - name: init
+              mountPath: /docker-entrypoint-initdb.d
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "mysqladmin ping -h 127.0.0.1 -uroot -p$MYSQL_ROOT_PASSWORD"]
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 12
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "mysqladmin ping -h 127.0.0.1 -uroot -p$MYSQL_ROOT_PASSWORD"]
+            initialDelaySeconds: 120
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: rating-db-pvc
+        - name: init
+          configMap:
+            name: rating-db-init
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rating-db
+  namespace: cake-delight
+  labels:
+    app: rating-db
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3306
+      targetPort: 3306
+  selector:
+    app: rating-db
+---
+# ============================================================
+# rating-service
+# ============================================================
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rating-config
+  namespace: cake-delight
+  labels:
+    app: rating-service
+data:
+  PORT: "8082"
+  DB_HOST: "rating-db"
+  DB_USER: "root"
+  DB_NAME: "cake_ratings"
+  DB_PORT: "3306"
+  ORDER_SERVICE_URL: "http://order-service:8083"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rating-service
+  namespace: cake-delight
+  labels:
+    app: rating-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rating-service
+  template:
+    metadata:
+      labels:
+        app: rating-service
+    spec:
+      containers:
+        - name: rating-service
+          image: cake-rating-service:latest
+          # Images are built locally; never pull from a registry.
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8082
+              name: http
+          envFrom:
+            - configMapRef:
+                name: rating-config
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-credentials
+                  key: DB_PASSWORD
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8082
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8082
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rating-service
+  namespace: cake-delight
+  labels:
+    app: rating-service
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8082
+      targetPort: 8082
+  selector:
+    app: rating-service

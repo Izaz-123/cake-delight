@@ -1,0 +1,30 @@
+{
+  "name": "cake-delight",
+  "version": "1.0.0",
+  "description": "Cloud native microservices cake ordering application (Node.js, MySQL, RabbitMQ, Docker, Kubernetes)",
+  "private": true,
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "start": "docker compose up -d --build",
+    "stop": "docker compose down",
+    "reset": "docker compose down -v && docker compose up -d --build",
+    "logs": "docker compose logs -f",
+    "ps": "docker compose ps",
+    "health": "curl http://localhost:8080/health/services",
+    "smoke-test": "bash scripts/smoke-test.sh",
+    "k8s:deploy": "bash scripts/k8s-deploy.sh",
+    "check": "node --check api-gateway/src/server.js && node --check services/catalog-service/src/server.js && node --check services/rating-service/src/server.js && node --check services/order-service/src/server.js && node --check services/inventory-service/src/server.js && node --check services/notification-service/src/server.js && node --check services/analytics-service/src/server.js"
+  },
+  "keywords": [
+    "microservices",
+    "cloud-native",
+    "docker",
+    "kubernetes",
+    "rabbitmq",
+    "event-driven"
+  ],
+  "author": "",
+  "license": "ISC"
+}

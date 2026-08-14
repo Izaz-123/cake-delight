@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rating-db-init
+  namespace: cake-delight
+  labels:
+    app: rating-db
+data:
+  init.sql: |
+    USE cake_ratings;
+    
+    CREATE TABLE IF NOT EXISTS ratings (
+        id CHAR(36) PRIMARY KEY,
+    
+        cake_id CHAR(36) NOT NULL,
+    
+        customer_id VARCHAR(80) NOT NULL,
+    
+        stars INT NOT NULL,
+    
+        review TEXT,
+    
+        order_id CHAR(36),
+    
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            ON UPDATE CURRENT_TIMESTAMP,
+    
+        CONSTRAINT chk_rating
+            CHECK (stars BETWEEN 1 AND 5),
+    
+        UNIQUE KEY unique_customer_cake (
+            customer_id,
+            cake_id
+        )
+    );
+    
+    CREATE INDEX idx_ratings_cake
+    ON ratings(cake_id);
+    
+    CREATE INDEX idx_ratings_customer
+    ON ratings(customer_id);

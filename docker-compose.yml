@@ -1,0 +1,607 @@
+services:
+
+  # ============================================================
+  # RABBITMQ
+  # ============================================================
+
+  rabbitmq:
+    image: rabbitmq:3-management
+
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+    restart: unless-stopped
+
+
+  # ============================================================
+  # MYSQL DATABASES
+  # One database per service
+  # ============================================================
+
+  catalog-db:
+    image: mysql:8.4
+
+    environment:
+      MYSQL_ROOT_PASSWORD: "${DB_PASSWORD}"
+      MYSQL_DATABASE: cake_catalog
+
+    ports:
+      - "3307:3306"
+
+    volumes:
+      - catalog-db-data:/var/lib/mysql
+      - ./database/catalog.sql:/docker-entrypoint-initdb.d/01-catalog.sql:ro
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "127.0.0.1",
+          "-uroot",
+          "-pRoot@123"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+
+    restart: unless-stopped
+
+
+  rating-db:
+    image: mysql:8.4
+
+    environment:
+      MYSQL_ROOT_PASSWORD: "${DB_PASSWORD}"
+      MYSQL_DATABASE: cake_ratings
+
+    ports:
+      - "3308:3306"
+
+    volumes:
+      - rating-db-data:/var/lib/mysql
+      - ./database/rating.sql:/docker-entrypoint-initdb.d/01-rating.sql:ro
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "127.0.0.1",
+          "-uroot",
+          "-pRoot@123"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+
+    restart: unless-stopped
+
+
+  order-db:
+    image: mysql:8.4
+
+    environment:
+      MYSQL_ROOT_PASSWORD: "${DB_PASSWORD}"
+      MYSQL_DATABASE: cake_orders
+
+    ports:
+      - "3309:3306"
+
+    volumes:
+      - order-db-data:/var/lib/mysql
+      - ./database/order.sql:/docker-entrypoint-initdb.d/01-order.sql:ro
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "127.0.0.1",
+          "-uroot",
+          "-pRoot@123"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+
+    restart: unless-stopped
+
+
+  inventory-db:
+    image: mysql:8.4
+
+    environment:
+      MYSQL_ROOT_PASSWORD: "${DB_PASSWORD}"
+      MYSQL_DATABASE: cake_inventory
+
+    ports:
+      - "3310:3306"
+
+    volumes:
+      - inventory-db-data:/var/lib/mysql
+      - ./database/inventory.sql:/docker-entrypoint-initdb.d/01-inventory.sql:ro
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "127.0.0.1",
+          "-uroot",
+          "-pRoot@123"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+
+    restart: unless-stopped
+
+
+  notification-db:
+    image: mysql:8.4
+
+    environment:
+      MYSQL_ROOT_PASSWORD: "${DB_PASSWORD}"
+      MYSQL_DATABASE: cake_notifications
+
+    ports:
+      - "3311:3306"
+
+    volumes:
+      - notification-db-data:/var/lib/mysql
+      - ./database/notification.sql:/docker-entrypoint-initdb.d/01-notification.sql:ro
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "127.0.0.1",
+          "-uroot",
+          "-pRoot@123"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+
+    restart: unless-stopped
+
+
+  analytics-db:
+    image: mysql:8.4
+
+    environment:
+      MYSQL_ROOT_PASSWORD: "${DB_PASSWORD}"
+      MYSQL_DATABASE: cake_analytics
+
+    ports:
+      - "3312:3306"
+
+    volumes:
+      - analytics-db-data:/var/lib/mysql
+      - ./database/analytics.sql:/docker-entrypoint-initdb.d/01-analytics.sql:ro
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "127.0.0.1",
+          "-uroot",
+          "-pRoot@123"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+
+    restart: unless-stopped
+
+
+  # ============================================================
+  # CATALOG SERVICE
+  # ============================================================
+
+  catalog-service:
+    build:
+      context: ./services/catalog-service
+
+    image: cake-catalog-service:latest
+
+    ports:
+      - "8081:8081"
+
+    environment:
+      PORT: 8081
+
+      DB_HOST: catalog-db
+      DB_USER: root
+      DB_PASSWORD: "Root@123"
+      DB_NAME: cake_catalog
+      DB_PORT: 3306
+
+      RATING_SERVICE_URL: http://rating-service:8082
+
+    depends_on:
+      catalog-db:
+        condition: service_healthy
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8081/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+    restart: unless-stopped
+
+
+  # ============================================================
+  # RATING SERVICE
+  # ============================================================
+
+  rating-service:
+    build:
+      context: ./services/rating-service
+
+    image: cake-rating-service:latest
+
+    ports:
+      - "8082:8082"
+
+    environment:
+      PORT: 8082
+
+      DB_HOST: rating-db
+      DB_USER: root
+      DB_PASSWORD: "Root@123"
+      DB_NAME: cake_ratings
+      DB_PORT: 3306
+
+      ORDER_SERVICE_URL: http://order-service:8083
+
+    depends_on:
+      rating-db:
+        condition: service_healthy
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8082/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+    restart: unless-stopped
+
+
+  # ============================================================
+  # ORDER SERVICE
+  # ============================================================
+
+  order-service:
+    build:
+      context: ./services/order-service
+
+    image: cake-order-service:latest
+
+    ports:
+      - "8083:8083"
+
+    environment:
+      PORT: 8083
+
+      DB_HOST: order-db
+      DB_USER: root
+      DB_PASSWORD: "Root@123"
+      DB_NAME: cake_orders
+      DB_PORT: 3306
+
+      CATALOG_SERVICE_URL: http://catalog-service:8081
+
+      DELIVERY_FEE: 5.99
+      FREE_DELIVERY_THRESHOLD: 75.00
+      TAX_RATE: 0.05
+
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      RABBITMQ_EXCHANGE: order.events
+      RABBITMQ_DLX: order.dlx
+      RABBITMQ_ROUTING_KEY: order.completed
+
+    depends_on:
+      order-db:
+        condition: service_healthy
+
+      rabbitmq:
+        condition: service_healthy
+
+      catalog-service:
+        condition: service_started
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8083/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+    restart: unless-stopped
+
+
+  # ============================================================
+  # INVENTORY SERVICE
+  # ============================================================
+
+  inventory-service:
+    build:
+      context: ./services/inventory-service
+
+    image: cake-inventory-service:latest
+
+    ports:
+      - "8084:8084"
+
+    environment:
+      PORT: 8084
+
+      DB_HOST: inventory-db
+      DB_USER: root
+      DB_PASSWORD: "Root@123"
+      DB_NAME: cake_inventory
+      DB_PORT: 3306
+
+      CATALOG_SERVICE_URL: http://catalog-service:8081
+
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      RABBITMQ_EXCHANGE: order.events
+      RABBITMQ_DLX: order.dlx
+      RABBITMQ_QUEUE: inventory.order.completed
+      RABBITMQ_DLQ: inventory.order.completed.dlq
+      RABBITMQ_ROUTING_KEY: order.completed
+
+    depends_on:
+      inventory-db:
+        condition: service_healthy
+
+      rabbitmq:
+        condition: service_healthy
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8084/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+    restart: unless-stopped
+
+
+  # ============================================================
+  # NOTIFICATION SERVICE
+  # ============================================================
+
+  notification-service:
+    build:
+      context: ./services/notification-service
+
+    image: cake-notification-service:latest
+
+    ports:
+      - "8085:8085"
+
+    environment:
+      PORT: 8085
+
+      DB_HOST: notification-db
+      DB_USER: root
+      DB_PASSWORD: "Root@123"
+      DB_NAME: cake_notifications
+      DB_PORT: 3306
+
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      RABBITMQ_EXCHANGE: order.events
+      RABBITMQ_DLX: order.dlx
+      RABBITMQ_QUEUE: notification.order.completed
+      RABBITMQ_DLQ: notification.order.completed.dlq
+      RABBITMQ_ROUTING_KEY: order.completed
+
+    depends_on:
+      notification-db:
+        condition: service_healthy
+
+      rabbitmq:
+        condition: service_healthy
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8085/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+    restart: unless-stopped
+
+
+  # ============================================================
+  # ANALYTICS SERVICE
+  # ============================================================
+
+  analytics-service:
+    build:
+      context: ./services/analytics-service
+
+    image: cake-analytics-service:latest
+
+    ports:
+      - "8086:8086"
+
+    environment:
+      PORT: 8086
+
+      DB_HOST: analytics-db
+      DB_USER: root
+      DB_PASSWORD: "Root@123"
+      DB_NAME: cake_analytics
+      DB_PORT: 3306
+
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      RABBITMQ_EXCHANGE: order.events
+      RABBITMQ_DLX: order.dlx
+      RABBITMQ_QUEUE: analytics.order.completed
+      RABBITMQ_DLQ: analytics.order.completed.dlq
+      RABBITMQ_ROUTING_KEY: order.completed
+
+    depends_on:
+      analytics-db:
+        condition: service_healthy
+
+      rabbitmq:
+        condition: service_healthy
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8086/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+    restart: unless-stopped
+
+
+  # ============================================================
+  # API GATEWAY
+  # Single public entry point + static frontend
+  # ============================================================
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: ./api-gateway/Dockerfile
+
+    image: cake-api-gateway:latest
+
+    ports:
+      - "8080:8080"
+
+    environment:
+      PORT: 8080
+
+      CATALOG_SERVICE_URL: http://catalog-service:8081
+      RATING_SERVICE_URL: http://rating-service:8082
+      ORDER_SERVICE_URL: http://order-service:8083
+      INVENTORY_SERVICE_URL: http://inventory-service:8084
+      NOTIFICATION_SERVICE_URL: http://notification-service:8085
+      ANALYTICS_SERVICE_URL: http://analytics-service:8086
+
+    depends_on:
+      catalog-service:
+        condition: service_started
+
+      rating-service:
+        condition: service_started
+
+      order-service:
+        condition: service_started
+
+      inventory-service:
+        condition: service_started
+
+      notification-service:
+        condition: service_started
+
+      analytics-service:
+        condition: service_started
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+    restart: unless-stopped
+
+
+# ============================================================
+# VOLUMES
+# ============================================================
+
+volumes:
+
+  catalog-db-data:
+
+  rating-db-data:
+
+  order-db-data:
+
+  inventory-db-data:
+
+  notification-db-data:
+
+  analytics-db-data:

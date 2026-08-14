@@ -1,0 +1,92 @@
+# ============================================================
+# API Gateway - the only publicly exposed component
+# ============================================================
+#
+# The gateway image also carries the static frontend and the OpenAPI
+# document, so no shared volume is needed in the cluster.
+# ============================================================
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gateway-config
+  namespace: cake-delight
+  labels:
+    app: api-gateway
+data:
+  PORT: "8080"
+  CATALOG_SERVICE_URL: "http://catalog-service:8081"
+  RATING_SERVICE_URL: "http://rating-service:8082"
+  ORDER_SERVICE_URL: "http://order-service:8083"
+  INVENTORY_SERVICE_URL: "http://inventory-service:8084"
+  NOTIFICATION_SERVICE_URL: "http://notification-service:8085"
+  ANALYTICS_SERVICE_URL: "http://analytics-service:8086"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: cake-delight
+  labels:
+    app: api-gateway
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+    spec:
+      containers:
+        - name: api-gateway
+          image: cake-api-gateway:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+          envFrom:
+            - configMapRef:
+                name: gateway-config
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway
+  namespace: cake-delight
+  labels:
+    app: api-gateway
+spec:
+  # NodePort so minikube can expose it directly:
+  #   minikube service api-gateway -n cake-delight
+  type: NodePort
+  ports:
+    - port: 8080
+      targetPort: 8080
+      nodePort: 30080
+  selector:
+    app: api-gateway

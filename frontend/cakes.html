@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Our Cakes | Cake Delight</title>
+
+    <link
+        rel="stylesheet"
+        href="css/style.css"
+    >
+
+</head>
+
+
+<body>
+
+
+<!-- =========================================================
+     NAVBAR
+========================================================= -->
+
+<header class="site-header">
+
+    <div class="navbar">
+
+        <a
+            href="index.html"
+            class="brand"
+        >
+            Cake Delight
+        </a>
+
+
+        <nav class="nav-links">
+
+            <a href="index.html">
+                Home
+            </a>
+
+            <a
+                href="cakes.html"
+                class="active"
+            >
+                Cakes
+            </a>
+
+            <a href="basket.html">
+                Basket
+            </a>
+
+            <a href="orders.html">
+                Orders
+            </a>
+
+            <a href="ratings.html">
+                Ratings
+            </a>
+
+            <a href="notifications.html">
+                Notifications
+            </a>
+
+        </nav>
+
+
+        <a
+            href="cakes.html"
+            class="nav-order-btn"
+        >
+            Order Now
+        </a>
+
+    </div>
+
+</header>
+
+
+
+<!-- =========================================================
+     CAKES PAGE
+========================================================= -->
+
+<main class="cakes-page">
+
+
+    <!-- =====================================================
+         PAGE HEADING
+    ====================================================== -->
+
+    <section class="cakes-header">
+
+        <span class="cakes-label">
+            OUR SPECIAL COLLECTION
+        </span>
+
+        <h1>
+            Delicious Cakes
+        </h1>
+
+        <p>
+            Find the perfect cake for every celebration
+            and special moment.
+        </p>
+
+    </section>
+
+
+
+    <!-- =====================================================
+         FILTERS
+    ====================================================== -->
+
+    <section class="filters-section">
+
+        <div class="filters-bar">
+
+
+            <!-- Search -->
+
+            <div class="filter-group">
+
+                <label for="searchInput">
+                    Search
+                </label>
+
+                <input
+                    type="text"
+                    id="searchInput"
+                    placeholder="Search cake..."
+                >
+
+            </div>
+
+
+
+            <!-- Category -->
+
+            <div class="filter-group">
+
+                <label for="categoryFilter">
+                    Category
+                </label>
+
+                <!--
+                    Options are loaded from:
+                    GET /api/v1/cakes/categories
+                -->
+
+                <select id="categoryFilter">
+
+                    <option value="">
+                        All Categories
+                    </option>
+
+                </select>
+
+            </div>
+
+
+
+            <!-- Minimum Price -->
+
+            <div class="filter-group">
+
+                <label for="minPrice">
+                    Min Price
+                </label>
+
+                <input
+                    type="number"
+                    id="minPrice"
+                    placeholder="₹0"
+                >
+
+            </div>
+
+
+
+            <!-- Maximum Price -->
+
+            <div class="filter-group">
+
+                <label for="maxPrice">
+                    Max Price
+                </label>
+
+                <input
+                    type="number"
+                    id="maxPrice"
+                    placeholder="₹2000"
+                >
+
+            </div>
+
+
+
+            <!-- Search Button -->
+
+            <div class="filter-button">
+
+                <button
+                    class="button"
+                    onclick="applyFilters()"
+                >
+                    Search
+                </button>
+
+            </div>
+
+
+
+            <!-- Reset Button -->
+
+            <div class="filter-button">
+
+                <button
+                    class="button secondary"
+                    onclick="resetFilters()"
+                >
+                    Reset
+                </button>
+
+            </div>
+
+
+        </div>
+
+    </section>
+
+
+
+    <!-- =====================================================
+         CAKE GRID
+    ====================================================== -->
+
+    <section class="cakes-results">
+
+        <div
+            id="cakeGrid"
+            class="cake-grid"
+        >
+            Loading cakes...
+        </div>
+
+    </section>
+
+
+</main>
+
+
+
+<!-- =========================================================
+     FOOTER
+========================================================= -->
+
+<footer class="site-footer">
+
+    <div class="footer-container">
+
+
+        <!-- Brand -->
+
+        <div class="footer-brand">
+
+            <a href="index.html">
+                Cake Delight
+            </a>
+
+            <p>
+                Freshly baked happiness delivered to
+                your doorstep. Making every celebration
+                a little sweeter.
+            </p>
+
+        </div>
+
+
+
+        <!-- Quick Links -->
+
+        <div class="footer-column">
+
+            <h3>
+                Quick Links
+            </h3>
+
+            <a href="index.html">
+                Home
+            </a>
+
+            <a href="cakes.html">
+                Cakes
+            </a>
+
+            <a href="basket.html">
+                Basket
+            </a>
+
+            <a href="orders.html">
+                Orders
+            </a>
+
+        </div>
+
+
+
+        <!-- Customer -->
+
+        <div class="footer-column">
+
+            <h3>
+                Customer
+            </h3>
+
+            <a href="ratings.html">
+                Ratings & Reviews
+            </a>
+
+            <a href="notifications.html">
+                Notifications
+            </a>
+
+            <a href="cakes.html">
+                Our Cakes
+            </a>
+
+            <a href="basket.html">
+                Order Now
+            </a>
+
+        </div>
+
+
+
+        <!-- Contact -->
+
+        <div class="footer-column">
+
+            <h3>
+                Contact Us
+            </h3>
+
+            <p>
+                📍 India
+            </p>
+
+            <p>
+                📞 +91 98765 43210
+            </p>
+
+            <p>
+                ✉️ hello@cakedelight.com
+            </p>
+
+        </div>
+
+
+    </div>
+
+
+
+    <!-- Footer Bottom -->
+
+    <div class="footer-bottom">
+
+        <p>
+            © 2026 Cake Delight. All rights reserved.
+        </p>
+
+        <p>
+            Made with ❤️ for cake lovers
+        </p>
+
+    </div>
+
+</footer>
+
+
+
+<!-- =========================================================
+     JAVASCRIPT
+========================================================= -->
+
+<script src="js/api.js"></script>
+
+<script src="js/cakes.js"></script>
+
+
+</body>
+
+</html>
